@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Quant Finance Workshop",
+  "description": "包含30多种金融算法的交互式库，支持 AKShare 数据获取与 Backtrader 策略回测模拟。",
+  "requestFramePermissions": []
+}
