@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { ALGORITHMS } from '../data/algorithms';
 import { AlgorithmCategory, FinancialAlgorithm } from '../types';
-import { ChevronRight, Search, BarChart3, Activity, ShieldAlert, PieChart, Cpu, Plus, FolderGit2, Calculator, History } from 'lucide-react';
+import { ChevronRight, Search, BarChart3, Activity, ShieldAlert, PieChart, Cpu, Plus, FolderGit2, Calculator, History, ChevronDown } from 'lucide-react';
 
 interface SidebarProps {
   onSelect: (id: string) => void;
@@ -12,20 +13,21 @@ interface SidebarProps {
 
 const CategoryIcon = ({ category }: { category: AlgorithmCategory }) => {
   switch (category) {
-    case AlgorithmCategory.BACKTEST: return <History size={16} className="text-orange-500" />;
-    case AlgorithmCategory.TECHNICAL: return <Activity size={16} className="text-blue-400" />;
-    case AlgorithmCategory.QUANT: return <BarChart3 size={16} className="text-green-400" />;
-    case AlgorithmCategory.RISK: return <ShieldAlert size={16} className="text-red-400" />;
-    case AlgorithmCategory.PORTFOLIO: return <PieChart size={16} className="text-purple-400" />;
-    case AlgorithmCategory.ML: return <Cpu size={16} className="text-yellow-400" />;
-    case AlgorithmCategory.UTILITY: return <Calculator size={16} className="text-cyan-400" />;
-    case AlgorithmCategory.CUSTOM: return <FolderGit2 size={16} className="text-zinc-300" />;
-    default: return <Activity size={16} />;
+    case AlgorithmCategory.BACKTEST: return <History size={14} className="text-orange-400" />;
+    case AlgorithmCategory.TECHNICAL: return <Activity size={14} className="text-blue-400" />;
+    case AlgorithmCategory.QUANT: return <BarChart3 size={14} className="text-green-400" />;
+    case AlgorithmCategory.RISK: return <ShieldAlert size={14} className="text-red-400" />;
+    case AlgorithmCategory.PORTFOLIO: return <PieChart size={14} className="text-purple-400" />;
+    case AlgorithmCategory.ML: return <Cpu size={14} className="text-yellow-400" />;
+    case AlgorithmCategory.UTILITY: return <Calculator size={14} className="text-cyan-400" />;
+    case AlgorithmCategory.CUSTOM: return <FolderGit2 size={14} className="text-white" />;
+    default: return <Activity size={14} />;
   }
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ onSelect, onNew, selectedId, customAlgos }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [collapsedCats, setCollapsedCats] = useState<string[]>([]);
 
   // Combine standard and custom algos
   const allAlgos = [...customAlgos, ...ALGORITHMS];
@@ -34,88 +36,95 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSelect, onNew, selectedId, c
     algo.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Define category order, prioritizing Backtest and Custom
   const categoryOrder = [
     AlgorithmCategory.BACKTEST,
-    AlgorithmCategory.TECHNICAL,
     AlgorithmCategory.QUANT,
+    AlgorithmCategory.ML,
     AlgorithmCategory.RISK,
     AlgorithmCategory.PORTFOLIO,
-    AlgorithmCategory.ML,
     AlgorithmCategory.ECONOMICS,
     AlgorithmCategory.UTILITY,
     AlgorithmCategory.CUSTOM
   ];
 
-  // Get available categories from data
   const availableCategories = Array.from(new Set(filteredAlgos.map(a => a.category)));
-  
-  // Sort based on predefined order
   const categories = categoryOrder.filter(c => availableCategories.includes(c));
-  // Add any remaining categories not in the explicit list
-  availableCategories.forEach(c => {
-    if (!categories.includes(c)) categories.push(c);
-  });
+  availableCategories.forEach(c => { if (!categories.includes(c)) categories.push(c); });
+
+  const toggleCategory = (cat: string) => {
+    setCollapsedCats(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
+  };
 
   return (
-    <div className="w-80 h-screen bg-zinc-950 border-r border-zinc-800 flex flex-col text-sm shadow-xl z-10">
-      <div className="p-4 border-b border-zinc-800 bg-zinc-950">
-        <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold font-mono text-xs shadow-md ring-1 ring-white/10">
-            QF
-          </div>
-          量化金融工坊
-        </h1>
-        <p className="text-[10px] text-zinc-500 mt-1 pl-11">Quant Finance & Algo Trading</p>
+    <div className="w-72 h-full bg-zinc-900/60 backdrop-blur-md border-r border-white/5 flex flex-col text-sm shadow-xl z-20">
+      {/* Header Area */}
+      <div className="p-4 border-b border-white/5 space-y-3">
+        <h2 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+          模型策略库
+          <span className="px-1.5 py-0.5 rounded-md bg-zinc-800 text-[10px] text-zinc-500 font-mono">{filteredAlgos.length}</span>
+        </h2>
         
-        {/* New Algorithm Button */}
-        <button 
-          onClick={onNew}
-          className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md flex items-center justify-center gap-2 transition-colors font-medium text-sm"
-        >
-          <Plus size={16} /> 新建策略/模型
-        </button>
-
-        <div className="mt-4 relative">
-          <Search className="absolute left-2 top-2.5 text-zinc-500" size={16} />
+        <div className="relative group">
+          <Search className="absolute left-2.5 top-2.5 text-zinc-500 group-focus-within:text-blue-500 transition-colors" size={14} />
           <input 
             type="text"
-            placeholder="搜索模型或策略..."
-            className="w-full bg-zinc-900 text-zinc-300 pl-8 pr-4 py-2 rounded-md border border-zinc-700 focus:outline-none focus:border-blue-500 transition-all"
+            placeholder="搜索模型..."
+            className="w-full bg-zinc-950/50 text-zinc-300 pl-9 pr-4 py-2 rounded-lg border border-white/5 focus:border-blue-500/50 focus:bg-zinc-900 focus:outline-none transition-all text-xs"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+
+        <button 
+          onClick={onNew}
+          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-xs shadow-lg shadow-blue-900/20 active:scale-95"
+        >
+          <Plus size={14} /> 新建策略
+        </button>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-zinc-800">
+      {/* List Area */}
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
         {categories.map(category => (
-          <div key={category} className="mb-6">
-            <h3 className="px-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-              <CategoryIcon category={category} />
-              {category}
-            </h3>
-            <div className="space-y-0.5">
-              {filteredAlgos.filter(a => a.category === category).map(algo => (
-                <button
-                  key={algo.id}
-                  onClick={() => onSelect(algo.id)}
-                  className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between group transition-colors border border-transparent ${
-                    selectedId === algo.id 
-                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
-                      : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
-                  }`}
-                >
-                  <span className="truncate">{algo.title}</span>
-                  {selectedId === algo.id && <ChevronRight size={14} />}
-                </button>
-              ))}
-            </div>
+          <div key={category} className="space-y-1">
+            <button 
+              onClick={() => toggleCategory(category)}
+              className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider hover:text-zinc-300 transition-colors group"
+            >
+              <div className="flex items-center gap-2">
+                 <CategoryIcon category={category} />
+                 <span>{category}</span>
+              </div>
+              <ChevronDown size={12} className={`transition-transform duration-200 ${collapsedCats.includes(category) ? '-rotate-90' : 'rotate-0'}`} />
+            </button>
+            
+            {!collapsedCats.includes(category) && (
+              <div className="space-y-0.5 animate-in slide-in-from-top-1 duration-200">
+                {filteredAlgos.filter(a => a.category === category).map(algo => (
+                  <button
+                    key={algo.id}
+                    onClick={() => onSelect(algo.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between group transition-all border border-transparent ${
+                      selectedId === algo.id 
+                        ? 'bg-zinc-800 text-zinc-100 border-white/5 shadow-sm' 
+                        : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
+                    }`}
+                  >
+                    <span className="truncate text-xs font-medium">{algo.title}</span>
+                    {selectedId === algo.id && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ))}
+        
         {filteredAlgos.length === 0 && (
-          <div className="text-center text-zinc-600 mt-10">
-            未找到结果
+          <div className="text-center text-zinc-600 py-10">
+            <Search size={24} className="mx-auto mb-2 opacity-20" />
+            <p className="text-xs">未找到匹配项</p>
           </div>
         )}
       </div>
