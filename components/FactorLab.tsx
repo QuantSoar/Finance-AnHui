@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Layers, BarChart, TrendingUp, Filter, Info, Play, Loader2, AlertTriangle, PenTool, Sparkles, Wand2, Hexagon } from 'lucide-react';
+import { Layers, BarChart, TrendingUp, Filter, Info, Play, Loader2, AlertTriangle, PenTool, Sparkles, Wand2, Hexagon, Plus, Code } from 'lucide-react';
 import { ChartRenderer } from './ChartRenderer';
 import { runFactorAnalysis, generateFactorExpression } from '../services/geminiService';
 import { FactorAnalysisResult } from '../types';
@@ -61,6 +61,21 @@ export const FactorLab: React.FC<FactorLabProps> = ({ dataContext }) => {
     { id: 'mf_quality_lowvol', name: '质量+低波 (Qual+LowVol)', category: 'Multi-Factor', desc: '防御性策略：高ROE + 低波动率。适合震荡下跌市。' },
     { id: 'mf_magic_formula', name: '神奇公式 (Magic Formula)', category: 'Multi-Factor', desc: '格林布拉特策略：高资本回报率(ROC) + 高盈利率(EBIT/EV)。' },
   ];
+
+  const quickSnippets = [
+    { label: "Close", code: "df['close']" },
+    { label: "Open", code: "df['open']" },
+    { label: "Volume", code: "df['volume']" },
+    { label: "PE Ratio", code: "df['pe_ratio']" },
+    { label: "Rank()", code: ".rank(pct=True)" },
+    { label: "ZScore()", code: "(x - x.mean()) / x.std()" },
+    { label: "MA(20)", code: "df['close'].rolling(20).mean()" },
+    { label: "PctChange", code: "df['close'].pct_change()" },
+  ];
+
+  const handleInsertSnippet = (code: string) => {
+    setCustomFormula(prev => prev + code);
+  };
 
   const handleRunAnalysis = async () => {
     if (!dataContext) {
@@ -124,7 +139,7 @@ export const FactorLab: React.FC<FactorLabProps> = ({ dataContext }) => {
                  onClick={() => setMode('custom')}
                  className={`flex-1 text-xs py-1.5 rounded transition-all font-medium ${mode === 'custom' ? 'bg-orange-600 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'}`}
                >
-                 自定义构建
+                 因子构建
                </button>
             </div>
          </div>
@@ -177,17 +192,41 @@ export const FactorLab: React.FC<FactorLabProps> = ({ dataContext }) => {
                     <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block flex items-center gap-1">
                       <PenTool size={12} /> 因子公式 (Python/Pandas)
                     </label>
+                    
+                    {/* Quick Insert Snippets */}
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {quickSnippets.map(s => (
+                        <button
+                          key={s.label}
+                          onClick={() => handleInsertSnippet(s.code)}
+                          className="text-[10px] bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                          title={`插入: ${s.code}`}
+                        >
+                          <Plus size={8} /> {s.label}
+                        </button>
+                      ))}
+                    </div>
+
                     <textarea 
                       value={customFormula}
                       onChange={(e) => setCustomFormula(e.target.value)}
-                      placeholder="e.g. 0.5 * rank(df['pe_ratio']) + 0.5 * rank(df['momentum'])"
+                      placeholder="e.g. 0.5 * df['pe_ratio'].rank(pct=True) + 0.5 * df['momentum'].rank(pct=True)"
                       className="w-full bg-[#1e1e1e] border border-zinc-700 rounded p-3 text-sm font-mono text-zinc-300 focus:outline-none focus:border-orange-500 min-h-[120px] leading-relaxed"
                       spellCheck={false}
                     />
-                    <p className="text-[10px] text-zinc-500 mt-1">
-                      可用: df, np, rank(), zscore(). <br/>
-                      支持多因子加权合成 (Multi-Factor Scoring)。
-                    </p>
+                    <div className="text-[10px] text-zinc-500 mt-2 p-2 bg-zinc-900/50 rounded border border-zinc-800/50">
+                      <div className="flex items-start gap-1.5">
+                         <Info size={12} className="shrink-0 mt-0.5" />
+                         <div className="space-y-1">
+                           <p>派生因子构建说明：</p>
+                           <ul className="list-disc pl-3 space-y-0.5">
+                             <li>变量 <code className="text-orange-400">df</code> 代表当前加载的数据框</li>
+                             <li>支持 NumPy (np) 和 Pandas 数学运算</li>
+                             <li>多因子合成建议使用 <code className="text-blue-400">rank(pct=True)</code> 标准化</li>
+                           </ul>
+                         </div>
+                      </div>
+                    </div>
                  </div>
               </div>
             )}

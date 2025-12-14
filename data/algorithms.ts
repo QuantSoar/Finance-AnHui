@@ -1,3 +1,4 @@
+
 import { AlgorithmCategory, FinancialAlgorithm } from '../types';
 
 const generateId = (prefix: string, index: number) => `${prefix}_${index.toString().padStart(3, '0')}`;
@@ -21,48 +22,318 @@ const createAlgo = (
 });
 
 // ============================================================================
-// 1. Backtesting Strategies (10+ Strategies)
+// 1. Backtesting Strategies (Professional Backtrader Code)
 // ============================================================================
 const strategies = [
   createAlgo('bt_sma_cross', '双均线趋势策略 (Golden Cross)', AlgorithmCategory.BACKTEST, 
-    '经典的趋势跟踪策略。当短期均线(MA10)上穿长期均线(MA30)时买入，下穿时卖出。',
-    `import backtrader as bt\nclass SmaCross(bt.Strategy):\n    params = (('pfast', 10), ('pslow', 30),)\n    def __init__(self):\n        self.crossover = bt.ind.CrossOver(bt.ind.SMA(period=self.params.pfast), bt.ind.SMA(period=self.params.pslow))\n    def next(self):\n        if not self.position:\n            if self.crossover > 0: self.buy()\n        elif self.crossover < 0: self.close()\ncerebro = bt.Cerebro()\ncerebro.addstrategy(SmaCross)\ncerebro.run()`, 'area'),
+    '经典的趋势跟踪策略。当短期均线(MA10)上穿长期均线(MA30)时买入，下穿时卖出。包含完整的仓位管理逻辑。',
+    `import backtrader as bt
+
+class SmaCross(bt.Strategy):
+    # 定义策略参数
+    params = (
+        ('pfast', 10),  # 短期均线周期
+        ('pslow', 30),  # 长期均线周期
+    )
+
+    def __init__(self):
+        # 保存收盘价引用
+        self.dataclose = self.datas[0].close
+
+        # 初始化指标
+        self.sma_fast = bt.ind.SMA(period=self.params.pfast)
+        self.sma_slow = bt.ind.SMA(period=self.params.pslow)
+        
+        # 生成交叉信号：1为金叉，-1为死叉
+        self.crossover = bt.ind.CrossOver(self.sma_fast, self.sma_slow)
+
+    def next(self):
+        # 如果没有持仓
+        if not self.position:
+            if self.crossover > 0:  # 金叉
+                self.buy()  # 全仓买入 (Backtrader默认逻辑需配置sizer)
+        # 如果持有持仓
+        elif self.crossover < 0:    # 死叉
+            self.close()            # 平掉所有仓位
+
+# ------------------------------------------------
+# 运行配置 (模拟环境自动执行)
+cerebro = bt.Cerebro()
+cerebro.addstrategy(SmaCross)
+cerebro.run()`, 'area'),
 
   createAlgo('bt_rsi_mean_rev', 'RSI 均值回归策略', AlgorithmCategory.BACKTEST, 
-    '利用 RSI 指标捕捉超买超卖。RSI < 30 买入，RSI > 70 卖出。',
-    `import backtrader as bt\nclass RsiStrat(bt.Strategy):\n    def __init__(self):\n        self.rsi = bt.ind.RSI()\n    def next(self):\n        if not self.position:\n            if self.rsi < 30: self.buy()\n        else:\n            if self.rsi > 70: self.close()\ncerebro = bt.Cerebro()\ncerebro.addstrategy(RsiStrat)\ncerebro.run()`, 'line'),
+    '利用 RSI 指标捕捉超买超卖。RSI < 30 买入，RSI > 70 卖出。适合震荡行情。',
+    `import backtrader as bt
+
+class RsiMeanReversion(bt.Strategy):
+    params = (
+        ('rsi_period', 14),
+        ('rsi_low', 30),
+        ('rsi_high', 70),
+    )
+
+    def __init__(self):
+        self.rsi = bt.ind.RSI_Safe(self.data.close, period=self.params.rsi_period)
+
+    def next(self):
+        if not self.position:
+            # 超卖区间：买入
+            if self.rsi < self.params.rsi_low:
+                self.buy()
+        else:
+            # 超买区间：卖出
+            if self.rsi > self.params.rsi_high:
+                self.close()
+
+cerebro = bt.Cerebro()
+cerebro.addstrategy(RsiMeanReversion)
+cerebro.run()`, 'line'),
 
   createAlgo('bt_macdfix', 'MACD 经典策略', AlgorithmCategory.BACKTEST, 
-    '基于异同移动平均线(MACD)的策略。MACD线上穿信号线时买入。',
-    `import backtrader as bt\nclass MacdStrat(bt.Strategy):\n    def __init__(self):\n        self.macd = bt.ind.MACD()\n        self.crossover = bt.ind.CrossOver(self.macd.macd, self.macd.signal)\n    def next(self):\n        if not self.position:\n            if self.crossover > 0: self.buy()\n        elif self.crossover < 0: self.close()\ncerebro = bt.Cerebro()\ncerebro.addstrategy(MacdStrat)\ncerebro.run()`, 'area'),
+    '基于异同移动平均线(MACD)的策略。MACD线上穿信号线(金叉)买入，下穿(死叉)卖出。',
+    `import backtrader as bt
+
+class MacdStrategy(bt.Strategy):
+    params = (
+        ('fast_period', 12),
+        ('slow_period', 26),
+        ('signal_period', 9),
+    )
+
+    def __init__(self):
+        self.macd = bt.ind.MACD(
+            self.data.close,
+            period_me1=self.params.fast_period, 
+            period_me2=self.params.slow_period, 
+            period_signal=self.params.signal_period
+        )
+        # 交叉信号：MACD线 vs 信号线
+        self.crossover = bt.ind.CrossOver(self.macd.macd, self.macd.signal)
+
+    def next(self):
+        if not self.position:
+            if self.crossover > 0:
+                self.buy()
+        elif self.crossover < 0:
+            self.close()
+
+cerebro = bt.Cerebro()
+cerebro.addstrategy(MacdStrategy)
+cerebro.run()`, 'area'),
 
   createAlgo('bt_bollinger_breakout', '布林带突破策略', AlgorithmCategory.BACKTEST, 
     '波动率突破策略。价格突破布林带上轨时买入，跌破中轨止损。',
-    `import backtrader as bt\nclass BBStrat(bt.Strategy):\n    def __init__(self):\n        self.bb = bt.ind.BollingerBands()\n    def next(self):\n        if not self.position:\n            if self.data.close > self.bb.lines.top: self.buy()\n        else:\n            if self.data.close < self.bb.lines.mid: self.close()\ncerebro = bt.Cerebro()\ncerebro.addstrategy(BBStrat)\ncerebro.run()`, 'line'),
+    `import backtrader as bt
 
-  createAlgo('bt_turtle', '海龟交易法则 (简化版)', AlgorithmCategory.BACKTEST, 
+class BollingerBreakout(bt.Strategy):
+    params = (
+        ('period', 20),
+        ('devfactor', 2.0),
+    )
+
+    def __init__(self):
+        self.bb = bt.ind.BollingerBands(
+            self.data.close,
+            period=self.params.period, 
+            devfactor=self.params.devfactor
+        )
+
+    def next(self):
+        if not self.position:
+            # 突破上轨买入
+            if self.data.close > self.bb.lines.top:
+                self.buy()
+        else:
+            # 跌破中轨止损/止盈
+            if self.data.close < self.bb.lines.mid:
+                self.close()
+
+cerebro = bt.Cerebro()
+cerebro.addstrategy(BollingerBreakout)
+cerebro.run()`, 'line'),
+
+  createAlgo('bt_turtle', '海龟交易法则 (唐奇安通道)', AlgorithmCategory.BACKTEST, 
     '基于理查德·丹尼斯的传奇策略。突破过去20天最高价买入，跌破过去10天最低价卖出。',
-    `import backtrader as bt\nclass Turtle(bt.Strategy):\n    def __init__(self):\n        self.high_20 = bt.ind.Highest(self.data.high(-1), period=20)\n        self.low_10 = bt.ind.Lowest(self.data.low(-1), period=10)\n    def next(self):\n        if not self.position:\n            if self.data.close > self.high_20: self.buy()\n        else:\n            if self.data.close < self.low_10: self.close()\ncerebro = bt.Cerebro()\ncerebro.addstrategy(Turtle)\ncerebro.run()`, 'area'),
+    `import backtrader as bt
 
-  createAlgo('bt_grid_trading', '网格交易策略 (Grid)', AlgorithmCategory.BACKTEST, 
-    '在震荡市中自动高抛低吸。设置多个价格档位，下跌分批买入，上涨分批卖出。',
-    `# 简化的网格逻辑演示\nimport backtrader as bt\nclass GridStrat(bt.Strategy):\n    params = (('grid_step', 0.02),)\n    def next(self):\n        # 实际网格需要复杂的挂单管理，此处为概念演示\n        pass\ncerebro = bt.Cerebro()\ncerebro.addstrategy(GridStrat)\ncerebro.run()`, 'none'),
+class TurtleStrategy(bt.Strategy):
+    params = (
+        ('long_period', 20),
+        ('short_period', 10),
+    )
 
-  createAlgo('bt_momentum', '价格动量策略 (Momentum)', AlgorithmCategory.BACKTEST, 
-    '买入过去N天涨幅最大的股票（动量效应）。',
-    `import backtrader as bt\nclass Momentum(bt.Strategy):\n    def __init__(self):\n        self.roc = bt.ind.ROC(period=20)\n    def next(self):\n        if not self.position and self.roc > 0.05: self.buy()\n        if self.position and self.roc < 0: self.close()\ncerebro = bt.Cerebro()\ncerebro.addstrategy(Momentum)\ncerebro.run()`, 'line'),
+    def __init__(self):
+        # 唐奇安通道上轨：过去N天的最高价
+        # 注意：使用 delay(-1) 避免未来函数，基于昨日数据计算今日信号
+        self.donchian_high = bt.ind.Highest(self.data.high(-1), period=self.params.long_period)
+        self.donchian_low = bt.ind.Lowest(self.data.low(-1), period=self.params.short_period)
 
-  createAlgo('bt_vol_target', '目标波动率策略', AlgorithmCategory.BACKTEST, 
-    '根据市场波动率调整仓位。波动率高时减仓，波动率低时加仓。',
-    `import backtrader as bt\nclass VolTarget(bt.Strategy):\n    params = (('target_vol', 0.1),)\n    def __init__(self):\n        self.vol = bt.ind.StdDev(period=20)\n    def next(self):\n        weight = self.params.target_vol / (self.vol[0] * 16) # Annualized approx\n        self.order_target_percent(target=min(weight, 1.0))\ncerebro = bt.Cerebro()\ncerebro.addstrategy(VolTarget)\ncerebro.run()`, 'area'),
+    def next(self):
+        if not self.position:
+            if self.data.close[0] > self.donchian_high[0]:
+                self.buy()
+        else:
+            if self.data.close[0] < self.donchian_low[0]:
+                self.close()
+
+cerebro = bt.Cerebro()
+cerebro.addstrategy(TurtleStrategy)
+cerebro.run()`, 'area'),
+
+  createAlgo('bt_atr_trailing_stop', 'ATR 移动止损策略', AlgorithmCategory.BACKTEST, 
+    '入场后，利用 ATR (平均真实波幅) 设置动态跟踪止损线，保护利润。',
+    `import backtrader as bt
+
+class AtrTrailingStop(bt.Strategy):
+    params = (
+        ('atr_period', 14),
+        ('atr_multiplier', 2.0),
+        ('sma_period', 20),
+    )
+
+    def __init__(self):
+        self.atr = bt.ind.ATR(self.data, period=self.params.atr_period)
+        self.sma = bt.ind.SMA(self.data.close, period=self.params.sma_period)
+        self.stop_price = None
+
+    def next(self):
+        if not self.position:
+            # 简单入场逻辑：价格高于均线
+            if self.data.close[0] > self.sma[0]:
+                self.buy()
+                # 初始止损
+                self.stop_price = self.data.close[0] - (self.atr[0] * self.params.atr_multiplier)
+        else:
+            # 更新移动止损：只上移不下移
+            new_stop = self.data.close[0] - (self.atr[0] * self.params.atr_multiplier)
+            if self.stop_price is not None:
+                self.stop_price = max(self.stop_price, new_stop)
+            
+            # 触发止损
+            if self.data.close[0] < self.stop_price:
+                self.close()
+
+cerebro = bt.Cerebro()
+cerebro.addstrategy(AtrTrailingStop)
+cerebro.run()`, 'none'),
+
+  createAlgo('bt_momentum_roc', 'ROC 动量策略', AlgorithmCategory.BACKTEST, 
+    '基于变动率(Rate of Change)指标。当动量大于 5% 时买入，动量转负时卖出。',
+    `import backtrader as bt
+
+class MomentumRoc(bt.Strategy):
+    params = (('period', 12),)
+
+    def __init__(self):
+        self.roc = bt.ind.ROC(self.data.close, period=self.params.period)
+
+    def next(self):
+        if not self.position:
+            if self.roc[0] > 0.05: # 动量强劲 (>5%)
+                self.buy()
+        else:
+            if self.roc[0] < 0.0: # 动量衰竭 (<0%)
+                self.close()
+
+cerebro = bt.Cerebro()
+cerebro.addstrategy(MomentumRoc)
+cerebro.run()`, 'line'),
+
+  createAlgo('bt_vol_target', '目标波动率策略 (Target Vol)', AlgorithmCategory.BACKTEST, 
+    '根据市场波动率动态调整仓位。波动率高时减仓，波动率低时加仓，以维持恒定的风险敞口。',
+    `import backtrader as bt
+import math
+
+class VolatilityTarget(bt.Strategy):
+    params = (
+        ('target_vol', 0.15), # 目标年化波动率 15%
+        ('lookback', 20),
+    )
+
+    def __init__(self):
+        self.vol = bt.ind.StdDev(self.data.close, period=self.params.lookback)
+
+    def next(self):
+        if len(self) < self.params.lookback: return
+
+        # 简单年化波动率估算
+        # 假设日波动率 * sqrt(252)
+        daily_vol_pct = self.vol[0] / self.data.close[0]
+        annualized_vol = daily_vol_pct * math.sqrt(252)
+        
+        if annualized_vol == 0: return
+
+        # 计算目标仓位权重
+        target_weight = self.params.target_vol / annualized_vol
+        
+        # 限制杠杆不超过 1.5倍
+        target_weight = min(target_weight, 1.5)
+        
+        # 调整仓位
+        self.order_target_percent(target=target_weight)
+
+cerebro = bt.Cerebro()
+cerebro.addstrategy(VolatilityTarget)
+cerebro.run()`, 'area'),
     
-  createAlgo('bt_sma_envelope', '均线包络策略', AlgorithmCategory.BACKTEST, 
-    '在移动平均线上下方一定百分比处构建通道。价格触及下轨买入，触及上轨卖出。',
-    `import backtrader as bt\nclass Envelope(bt.Strategy):\n    params = (('perc', 0.02),)\n    def __init__(self):\n        sma = bt.ind.SMA(period=20)\n        self.top = sma * (1+self.params.perc)\n        self.bot = sma * (1-self.params.perc)\n    def next(self):\n        if self.data.close < self.bot: self.buy()\n        elif self.data.close > self.top: self.close()\ncerebro = bt.Cerebro()\ncerebro.addstrategy(Envelope)\ncerebro.run()`, 'area'),
+  createAlgo('bt_sma_envelope', '均线包络策略 (Envelopes)', AlgorithmCategory.BACKTEST, 
+    '在移动平均线上下方一定百分比处构建通道。价格触及下轨买入（均值回归），触及上轨卖出。',
+    `import backtrader as bt
+
+class EnvelopeStrategy(bt.Strategy):
+    params = (
+        ('period', 20),
+        ('perc', 0.025), # 2.5% 包络宽度
+    )
+
+    def __init__(self):
+        self.sma = bt.ind.SMA(self.data.close, period=self.params.period)
+        
+        # 手动计算上轨和下轨 (Line objects)
+        self.top = self.sma * (1.0 + self.params.perc)
+        self.bot = self.sma * (1.0 - self.params.perc)
+
+    def next(self):
+        if not self.position:
+            if self.data.close[0] < self.bot[0]: # 超跌买入
+                self.buy()
+        else:
+            if self.data.close[0] > self.top[0]: # 超涨卖出
+                self.close()
+
+cerebro = bt.Cerebro()
+cerebro.addstrategy(EnvelopeStrategy)
+cerebro.run()`, 'area'),
 
   createAlgo('bt_three_soldiers', '红三兵形态策略', AlgorithmCategory.BACKTEST, 
-    'K线形态识别。连续三天阳线且收盘价创新高时买入。',
-    `import backtrader as bt\nclass ThreeSoldiers(bt.Strategy):\n    def next(self):\n        if self.data.close[0] > self.data.open[0] and \\\n           self.data.close[-1] > self.data.open[-1] and \\\n           self.data.close[-2] > self.data.open[-2]:\n            self.buy()\ncerebro = bt.Cerebro()\ncerebro.addstrategy(ThreeSoldiers)\ncerebro.run()`, 'scatter')
+    'K线形态识别。连续三天阳线且收盘价每日创新高时买入，属于强烈的反转信号。',
+    `import backtrader as bt
+
+class ThreeWhiteSoldiers(bt.Strategy):
+    def next(self):
+        # 至少需要3根K线
+        if len(self.data) < 3: return
+
+        # 定义阳线：收盘 > 开盘
+        green0 = self.data.close[0] > self.data.open[0]
+        green1 = self.data.close[-1] > self.data.open[-1]
+        green2 = self.data.close[-2] > self.data.open[-2]
+
+        # 定义创新高：收盘价逐步抬升
+        up_trend = self.data.close[0] > self.data.close[-1] > self.data.close[-2]
+
+        if not self.position:
+            if green0 and green1 and green2 and up_trend:
+                self.buy()
+        
+        # 简单的5天后离场逻辑
+        elif len(self) % 5 == 0: 
+            self.close()
+
+cerebro = bt.Cerebro()
+cerebro.addstrategy(ThreeWhiteSoldiers)
+cerebro.run()`, 'scatter')
 ];
 
 // ============================================================================
@@ -144,9 +415,6 @@ const others = [
 
 // Combine all and export
 export const ALGORITHMS: FinancialAlgorithm[] = [
-  // Original top items to keep continuity
-  createAlgo('bt_sma_crossover', '双均线趋势策略 (SMA)', AlgorithmCategory.BACKTEST, '量化交易入门最经典的策略。', `import backtrader as bt\n# ... (classic code)`, 'area'),
-  
   // New Sets
   ...strategies,
   ...quants,

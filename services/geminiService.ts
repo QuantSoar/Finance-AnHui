@@ -158,19 +158,36 @@ export const simulateCodeExecution = async (code: string) => {
   }
 };
 
+interface BacktestConfig {
+  initialCash: number;
+  commission: number;
+  timeframe: string;
+}
+
 // NEW: Specialized function for Backtest Lab with Data Context
-export const runBacktestSimulation = async (code: string, dataContext: string): Promise<BacktestResult> => {
+export const runBacktestSimulation = async (
+  code: string, 
+  dataContext: string,
+  config: BacktestConfig = { initialCash: 100000, commission: 0.0005, timeframe: 'daily' }
+): Promise<BacktestResult> => {
   try {
     const ai = getAIClient();
     const model = "gemini-2.5-flash";
 
     const prompt = `
-      You are a specialized Backtest Simulation Engine.
+      You are a specialized Backtest Simulation Engine (similar to Backtrader/Zipline).
       
       CONTEXT:
-      1. The user has loaded specific financial data (CSV format).
-      2. The user has written a Python Strategy (likely using Backtrader or generic Logic).
-      3. You must execute this strategy against the provided data logicially and generate results.
+      1. User provided CSV Data.
+      2. User provided Python Strategy Code.
+      3. **CONFIG**: 
+         - Initial Cash: ${config.initialCash}
+         - Commission Rate: ${config.commission}
+         - Data Frequency: ${config.timeframe}
+      
+      TASK:
+      Simulate the execution day-by-day (or minute-by-minute if selected) on the provided data.
+      Calculate fees for every trade based on commission rate.
 
       DATA CONTEXT (First 50 rows):
       \`\`\`csv
@@ -181,33 +198,42 @@ export const runBacktestSimulation = async (code: string, dataContext: string): 
       \`\`\`python
       ${code}
       \`\`\`
-
-      TASK:
-      Simulate the day-by-day execution of the strategy on the provided data.
       
       OUTPUT JSON FORMAT:
       {
-        "outputLog": "Detailed transaction logs (e.g. 2023-01-05 BUY 100 shares @ 50.00)...",
+        "outputLog": "Detailed transaction logs... (Include date, order type, price, cost, commission)",
         "metrics": {
-          "totalReturn": "e.g. +15.4%",
-          "sharpeRatio": "e.g. 1.2",
-          "maxDrawdown": "e.g. -5.5%",
-          "winRate": "e.g. 60%"
+          "totalReturn": "e.g. +25.4%",
+          "annualizedReturn": "e.g. +15.2%",
+          "sharpeRatio": "e.g. 1.8",
+          "sortinoRatio": "e.g. 2.1",
+          "maxDrawdown": "e.g. -12.5%",
+          "volatility": "e.g. 18.5%",
+          "winRate": "e.g. 65%",
+          "tradeCount": 24,
+          "alpha": "0.05",
+          "beta": "0.9"
         },
         "equityCurve": [
            {"name": "2023-01-01", "value": 100000},
-           ... (Generate daily equity values corresponding to the data dates)
+           ... (Daily portfolio value)
+        ],
+        "drawdownCurve": [
+           {"name": "2023-01-01", "value": 0},
+           {"name": "2023-01-02", "value": -0.02},
+           ... (Daily drawdown percentage, e.g. -0.05 for -5%)
         ],
         "tradeSignals": [
-           {"date": "2023-01-05", "type": "buy", "price": 50.00},
-           {"date": "2023-02-10", "type": "sell", "price": 55.00}
-           ... (Only actual executed trades)
+           {"id": "1", "date": "2023-01-05", "type": "buy", "price": 50.00, "size": 100, "reason": "SMA Cross"},
+           {"id": "2", "date": "2023-02-10", "type": "sell", "price": 55.00, "size": 100, "pnl": 500, "pnlPct": "+10.0%"}
+           ... (List all executed trades)
         ]
       }
       
       RULES:
       - Be realistic. If the strategy buys, cash goes down, stock goes up.
-      - If no data context is provided, simulate a generic market data scenario.
+      - Calculate Drawdown correctly (current value / peak value - 1).
+      - If no trades occur, state that in the log.
     `;
 
     const response = await ai.models.generateContent({
@@ -221,8 +247,13 @@ export const runBacktestSimulation = async (code: string, dataContext: string): 
     const result = JSON.parse(response.text || "{}");
     return {
       outputLog: result.outputLog || "回测完成，无交易记录。",
-      metrics: result.metrics || { totalReturn: "0%", sharpeRatio: "0", maxDrawdown: "0%", winRate: "0%" },
+      metrics: result.metrics || { 
+        totalReturn: "0%", annualizedReturn: "0%", sharpeRatio: "0", sortinoRatio: "0",
+        maxDrawdown: "0%", volatility: "0%", winRate: "0%", tradeCount: 0, alpha: "0", beta: "0"
+      },
       equityCurve: result.equityCurve || [],
+      drawdownCurve: result.drawdownCurve || [],
+      dailyReturns: result.dailyReturns || [],
       tradeSignals: result.tradeSignals || []
     };
 

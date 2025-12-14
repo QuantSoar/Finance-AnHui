@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ScatterChart, Scatter, AreaChart, Area, Legend } from 'recharts';
 import { FinancialAlgorithm } from '../types';
@@ -29,9 +30,10 @@ interface ChartRendererProps {
   algorithm?: FinancialAlgorithm;
   customData?: any[];
   customType?: string;
+  color?: string; // NEW: Allow forcing a color
 }
 
-export const ChartRenderer: React.FC<ChartRendererProps> = ({ algorithm, customData, customType }) => {
+export const ChartRenderer: React.FC<ChartRendererProps> = ({ algorithm, customData, customType, color }) => {
   // Use custom data if available, otherwise generate mock data based on algorithm ID
   const data = useMemo(() => {
     if (customData && customData.length > 0) return customData;
@@ -58,9 +60,18 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ algorithm, customD
     const colors = ['#3b82f6', '#10b981', '#f43f5e', '#8b5cf6', '#f59e0b'];
     
     return keys.map((key, index) => {
-      // Logic for equity curve vs standard lines
-      const strokeColor = key === 'value' ? '#10b981' : colors[index % colors.length];
-      const fillColor = key === 'value' ? '#10b981' : colors[index % colors.length];
+      // Logic for color override or default scheme
+      let strokeColor = colors[index % colors.length];
+      let fillColor = colors[index % colors.length];
+
+      if (color) {
+        strokeColor = color;
+        fillColor = color;
+      } else if (key === 'value') {
+         // Default logic: Equity green, drawdown logic handled by parent passing color
+         strokeColor = '#10b981';
+         fillColor = '#10b981';
+      }
 
       if (ChartComponent === Line) {
         return <Line key={key} type="monotone" dataKey={key} stroke={strokeColor} dot={false} strokeWidth={2} />;

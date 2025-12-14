@@ -42,21 +42,33 @@ export interface ChartDataPoint {
 
 // New Types for Backtesting
 export interface TradeSignal {
+  id?: string;
   date: string;
   type: 'buy' | 'sell';
   price: number;
   size?: number;
+  pnl?: number;      // Profit/Loss amount
+  pnlPct?: string;   // Profit/Loss percentage
+  reason?: string;   // Entry/Exit reason
 }
 
 export interface BacktestResult {
   outputLog: string;
   metrics: {
     totalReturn: string;
+    annualizedReturn: string; // New
     sharpeRatio: string;
+    sortinoRatio: string;     // New
+    volatility: string;       // New
     maxDrawdown: string;
     winRate: string;
+    tradeCount: number;       // New
+    alpha?: string;           // New
+    beta?: string;            // New
   };
   equityCurve: { name: string; value: number }[];
+  drawdownCurve: { name: string; value: number }[]; // New: For underwater plot
+  dailyReturns: { name: string; value: number }[];  // New: For volatility analysis
   tradeSignals: TradeSignal[];
 }
 
@@ -72,4 +84,47 @@ export interface FactorAnalysisResult {
 export interface AgentResponse {
   reply: string;
   updates?: Partial<FinancialAlgorithm>;
+}
+
+// Dify Configuration Types
+export interface DifyConfig {
+  apiKey: string;
+  baseUrl: string; // e.g., https://api.dify.ai/v1
+}
+
+export type AgentMode = 'gemini_direct' | 'dify_agent';
+
+// --- WORKFLOW STUDIO TYPES ---
+export type NodeType = 'start' | 'data_loader' | 'code_processor' | 'llm_analyzer' | 'visualizer' | 'router';
+
+export interface WorkflowPort {
+  id: string;
+  type: 'source' | 'target';
+  label?: string;
+}
+
+export interface WorkflowNode {
+  id: string;
+  type: NodeType;
+  position: { x: number; y: number };
+  data: {
+    label: string;
+    status: 'idle' | 'running' | 'success' | 'error';
+    // Configuration Inputs
+    config: Record<string, any>;
+    // Execution Results
+    output?: any;
+    logs?: string[];
+  };
+  inputs: WorkflowPort[];
+  outputs: WorkflowPort[];
+}
+
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  sourceHandle: string;
+  target: string;
+  targetHandle: string;
+  animated?: boolean;
 }
